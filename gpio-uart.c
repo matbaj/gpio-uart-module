@@ -1,9 +1,20 @@
 #include <linux/gpio.h>
+#include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/serio.h>
 
 static DECLARE_WAIT_QUEUE_HEAD(wq);
 # define SERIO_GPIOUART    0x40
+# define GPIO_COUNT 10
+# define GPIO_STATE_INIT 0
+# define GPIO_STATE_READ 1
+
+
+struct gpio_data {
+    int state;
+    unsigned int gpio_state[GPIO_COUNT];
+    struct serio *serio;
+};
 
 static int uart_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
@@ -14,13 +25,14 @@ static int uart_gpio_get(struct gpio_chip *chip, unsigned offset)
 
 static void uart_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
-//  unsigned char turn_on[] = { 0x1b };
-//  unsigned char turn_off[] = { 0x1a };
+  struct serio *serio = chip->irqdomain->host_data;
   printk(KERN_INFO "[gpio-uart] %s Setting GPIO: %u value: %d\n", __func__,offset,value);
-/*  if (value)
+  if (value)
+      serio_write(serio, 0x1b);
       //uart->f_op->write(uart, turn_on, 1, &uart->f_pos);
   else
-      //uart->f_op->write(uart, turn_off, 1, &uart->f_pos); */
+    serio_write(serio, 0x1a);
+      //uart->f_op->write(uart, turn_off, 1, &uart->f_pos);
 }
 
 static int uart_direction_input(struct gpio_chip *chip, unsigned offset)
@@ -59,16 +71,28 @@ static struct gpio_chip uart_gpio_chip = {
     .to_irq         = uart_to_irq,
     .base           = 0, 
     .ngpio          = 2, 
+    .owner          = THIS_MODULE,
 };
 
 
 static int gpio_connect(struct serio *serio, struct serio_driver *drv)
 {
   int err;
+  struct gpio_data *gpio_d;
+  struct irq_domain *irqdomain;
+  irqdomain = uart_gpio_chip.irqdomain;
+  irqdomain->host_data = serio;
+  gpio_d = kzalloc(sizeof(struct gpio_data), GFP_KERNEL);
+  if (!gpio_d) 
+    return -ENOMEM;
+  gpio_d->state = GPIO_STATE_INIT;
+  serio_set_drvdata(serio, gpio_d);
+  gpio_d->serio=serio;
   err = serio_open(serio, drv);
   if (err)
     return err;
   gpiochip_add(&uart_gpio_chip);
+
 
   return 0;
 }
