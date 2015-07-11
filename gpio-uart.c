@@ -35,7 +35,7 @@ static int uart_gpio_get(struct gpio_chip *chip, unsigned offset)
 	cmd = offset<<1; /* shift one to left */
 
 	serio_write(serio, cmd);
-	pr_info("[gpio-uart] %s Getting GPIO: %u  cmd: %u\n",
+	pr_debug("[gpio-uart] %s Getting GPIO: %u  cmd: %u\n",
 		__func__, offset, cmd);
 	gpio_d->state = GPIO_STATE_READ;
 	wait_event_interruptible_timeout(wq, gpio_d->state == GPIO_STATE_IDLE,
@@ -56,7 +56,7 @@ static void uart_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	struct serio *serio;
 	unsigned int cmd;
 
-	pr_info("[gpio-uart] %s Setting GPIO: %u value: %d\n",
+	pr_debug("[gpio-uart] %s Setting GPIO: %u value: %d\n",
 		__func__, offset, value);
 
 	gpio_d = chip->irqdomain->host_data;
@@ -65,21 +65,43 @@ static void uart_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	cmd = offset<<1; /* Shift one place to left to leave place for value */
 	cmd |= 0x10; /* Write command */
 	cmd |= value; /* value */
-	pr_info("[gpio-uart] %s Setting GPIO: %u value: %d cmd: 0x%x\n",
+	pr_debug("[gpio-uart] %s Setting GPIO: %u value: %d cmd: 0x%x\n",
 		__func__, offset, value, cmd);
 	serio_write(serio, cmd);
 }
 
 static int uart_direction_input(struct gpio_chip *chip, unsigned offset)
 {
-	/* TODO */
+	struct gpio_data *gpio_d;
+	struct serio *serio;
+	unsigned int cmd;
+
+	gpio_d = chip->irqdomain->host_data;
+	serio = gpio_d->serio;
+
+	cmd = offset<<1; /* Shift one place to left to leave place for value */
+	cmd |= 0x30; /* Direction mode Write command with value 0 */
+	pr_debug("[gpio-uart] %s input Setting GPIO direction: %u  cmd: 0x%x\n",
+		__func__, offset, cmd);
+	serio_write(serio, cmd);
 	return 0;
 }
 
 static int uart_direction_output(struct gpio_chip *chip, unsigned offset,
 	int value)
 {
-	/* TODO */
+	struct gpio_data *gpio_d;
+	struct serio *serio;
+	unsigned int cmd;
+
+	gpio_d = chip->irqdomain->host_data;
+	serio = gpio_d->serio;
+
+	cmd = offset<<1; /* Shift one place to left to leave place for value */
+	cmd |= 0x31; /* Direction mode  Write command with value 1 */
+	pr_debug("[gpio-uart] %s output Setting GPIO: %u cmd: 0x%x\n",
+		__func__, offset, cmd);
+	serio_write(serio, cmd);
 	return 0;
 }
 
